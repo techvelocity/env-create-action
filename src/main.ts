@@ -32,13 +32,13 @@ async function run(): Promise<void> {
       await createOrUpdate(velocityToken, envName, services)
     } catch (e) {
       if (deploymentId) {
-        await updateDeployment(deploymentId, false)
+        await updateDeployment(deploymentId, envName, false)
       }
       throw e
     }
 
     if (deploymentId) {
-      await updateDeployment(deploymentId, true)
+      await updateDeployment(deploymentId, envName, true)
     }
   } catch (error) {
     if (error instanceof Error) core.setFailed(error.message)

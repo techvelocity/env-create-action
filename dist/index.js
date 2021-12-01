@@ -6,6 +6,25 @@ require('./sourcemap-register.js');/******/ (() => { // webpackBootstrap
 
 "use strict";
 
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    Object.defineProperty(o, k2, { enumerable: true, get: function() { return m[k]; } });
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || function (mod) {
+    if (mod && mod.__esModule) return mod;
+    var result = {};
+    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    __setModuleDefault(result, mod);
+    return result;
+};
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -18,9 +37,19 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 var _a;
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.updateDeployment = exports.startDeployment = void 0;
+const core = __importStar(__nccwpck_require__(2186));
 const action_1 = __nccwpck_require__(1231);
 const octokit = new action_1.Octokit();
 const [owner, repo] = ((_a = process.env.GITHUB_REPOSITORY) !== null && _a !== void 0 ? _a : '?/?').split('/');
+function environmentUrl(envName) {
+    const { VELOCITY_DOMAIN: velocityDomain, VELOCITY_SERVICE: velocityService } = process.env;
+    let url = '';
+    if (velocityDomain && velocityService) {
+        url = `https://${velocityService}-${envName}.${velocityDomain}`;
+        core.info(`Deployment url: ${url}`);
+    }
+    return url;
+}
 function startDeployment(name) {
     return __awaiter(this, void 0, void 0, function* () {
         const ref = process.env.GITHUB_HEAD_REF || process.env.GITHUB_REF || '?';
@@ -50,28 +79,24 @@ function startDeployment(name) {
             throw new Error(`unable to create deployment: ${deployment.data.message}`);
         }
         const deploymentId = deployment.data.id;
-        const { VELOCITY_DOMAIN: velocityDomain, VELOCITY_SERVICE: velocityService } = process.env;
-        let url = '';
-        if (velocityDomain && velocityService) {
-            url = `https://${velocityService}-${name}.${velocityDomain}`;
-        }
         yield octokit.repos.createDeploymentStatus({
             owner,
             repo,
             deployment_id: deploymentId,
             state: 'in_progress',
-            environment_url: url
+            environment_url: environmentUrl(name)
         });
         return deploymentId;
     });
 }
 exports.startDeployment = startDeployment;
-function updateDeployment(deploymentId, success) {
+function updateDeployment(deploymentId, envName, success) {
     return __awaiter(this, void 0, void 0, function* () {
         yield octokit.repos.createDeploymentStatus({
             owner,
             repo,
             deployment_id: deploymentId,
+            environment_url: environmentUrl(envName),
             state: success ? 'success' : 'failure',
             log_url: `${process.env.GITHUB_SERVER_URL}/${owner}/${repo}/actions/runs/${process.env.GITHUB_RUN_ID}`
         });
@@ -240,12 +265,12 @@ function run() {
             }
             catch (e) {
                 if (deploymentId) {
-                    yield (0, deployments_1.updateDeployment)(deploymentId, false);
+                    yield (0, deployments_1.updateDeployment)(deploymentId, envName, false);
                 }
                 throw e;
             }
             if (deploymentId) {
-                yield (0, deployments_1.updateDeployment)(deploymentId, true);
+                yield (0, deployments_1.updateDeployment)(deploymentId, envName, true);
             }
         }
         catch (error) {

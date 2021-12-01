@@ -1,7 +1,21 @@
+import * as core from '@actions/core'
 import {Octokit} from '@octokit/action'
 
 const octokit = new Octokit()
 const [owner, repo] = (process.env.GITHUB_REPOSITORY ?? '?/?').split('/')
+
+function environmentUrl(envName: string): string {
+  const {VELOCITY_DOMAIN: velocityDomain, VELOCITY_SERVICE: velocityService} =
+    process.env
+
+  let url = ''
+  if (velocityDomain && velocityService) {
+    url = `https://${velocityService}-${envName}.${velocityDomain}`
+    core.info(`Deployment url: ${url}`)
+  }
+
+  return url
+}
 
 export async function startDeployment(name: string): Promise<number> {
   const ref = process.env.GITHUB_HEAD_REF || process.env.GITHUB_REF || '?'
@@ -36,20 +50,12 @@ export async function startDeployment(name: string): Promise<number> {
 
   const deploymentId = deployment.data.id
 
-  const {VELOCITY_DOMAIN: velocityDomain, VELOCITY_SERVICE: velocityService} =
-    process.env
-
-  let url = ''
-  if (velocityDomain && velocityService) {
-    url = `https://${velocityService}-${name}.${velocityDomain}`
-  }
-
   await octokit.repos.createDeploymentStatus({
     owner,
     repo,
     deployment_id: deploymentId,
     state: 'in_progress',
-    environment_url: url
+    environment_url: environmentUrl(name)
   })
 
   return deploymentId
@@ -57,12 +63,14 @@ export async function startDeployment(name: string): Promise<number> {
 
 export async function updateDeployment(
   deploymentId: number,
+  envName: string,
   success: boolean
 ): Promise<void> {
   await octokit.repos.createDeploymentStatus({
     owner,
     repo,
     deployment_id: deploymentId,
+    environment_url: environmentUrl(envName),
     state: success ? 'success' : 'failure',
     log_url: `${process.env.GITHUB_SERVER_URL}/${owner}/${repo}/actions/runs/${process.env.GITHUB_RUN_ID}`
   })
