@@ -1,0 +1,24 @@
+name: "Velocity - env-create-action"
+description: "Create an environment in Velocity using Github Actions."
+author: "Velocity"
+inputs:
+  velocity-token:
+    required: true
+    description: "veloctl authentication token"
+  services:
+    required: true
+    description: "a list of services and their optional versions (e.g., frontend:ver1,backend,another:ver2)"
+  name:
+    required: true
+    description: "the environment name"
+  use-gh-deployments:
+    required: true
+    description: "use Github Deployments API"
+    default: "true"
+  version:
+    required: false
+    description: "specific veloctl version (default: latest)"
+    default: "latest"
+runs:
+  using: "node12"
+  main: "dist/index.js"

@@ -1,0 +1,53 @@
+{
+  "name": "env-create-action",
+  "version": "0.0.0",
+  "description": "veloctl env create action",
+  "main": "lib/main.js",
+  "scripts": {
+    "build": "tsc",
+    "format": "prettier --write '**/*.ts'",
+    "format-check": "prettier --check '**/*.ts'",
+    "lint": "eslint src/**/*.ts",
+    "package": "ncc build --source-map --license licenses.txt",
+    "test": "jest",
+    "prepare": "npm run build && npm run format && npm run lint && npm run package"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/techvelocity/env-create-action.git"
+  },
+  "keywords": [
+    "actions",
+    "velocity",
+    "env",
+    "create"
+  ],
+  "author": "Velocity <support@velocity.tech>",
+  "license": "MIT",
+  "dependencies": {
+    "@actions/core": "^1.6.0",
+    "@actions/exec": "^1.1.0",
+    "@actions/tool-cache": "^1.7.1",
+    "@octokit/action": "^3.18.0",
+    "node-fetch": "^2.6.6",
+    "semver": "^7.3.5",
+    "tmp": "^0.2.1",
+    "yaml": "^1.10.2"
+  },
+  "devDependencies": {
+    "@types/node": "^16.11.11",
+    "@types/node-fetch": "^2.5.12",
+    "@types/semver": "^7.3.9",
+    "@types/tmp": "^0.2.2",
+    "@typescript-eslint/parser": "^5.5.0",
+    "@vercel/ncc": "^0.32.0",
+    "eslint": "^8.3.0",
+    "eslint-plugin-github": "^4.3.5",
+    "eslint-plugin-jest": "^25.3.0",
+    "jest": "^27.4.3",
+    "js-yaml": "^4.1.0",
+    "prettier": "2.5.0",
+    "ts-jest": "^27.0.7",
+    "typescript": "^4.5.2"
+  }
+}
