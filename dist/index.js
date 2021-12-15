@@ -151,7 +151,7 @@ const tc = __importStar(__nccwpck_require__(7784));
 const node_fetch_1 = __importDefault(__nccwpck_require__(467));
 const os_1 = __importDefault(__nccwpck_require__(2037));
 const semver_1 = __importDefault(__nccwpck_require__(1383));
-const LATEST_URL = 'https://latest.velocity.tech/cli';
+const LATEST_URL = 'https://releases.velocity.tech/veloctl/latest';
 function latest() {
     return __awaiter(this, void 0, void 0, function* () {
         const response = yield (0, node_fetch_1.default)(LATEST_URL);
