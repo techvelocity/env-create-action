@@ -35,7 +35,7 @@
     "yaml": "^1.10.2"
   },
   "devDependencies": {
-    "@types/node": "^16.11.12",
+    "@types/node": "^16.11.13",
     "@types/node-fetch": "^2.5.12",
     "@types/semver": "^7.3.9",
     "@types/tmp": "^0.2.2",
