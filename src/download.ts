@@ -5,7 +5,7 @@ import fetch from 'node-fetch'
 import os from 'os'
 import semver from 'semver'
 
-const LATEST_URL = 'https://latest.velocity.tech/cli'
+const LATEST_URL = 'https://releases.velocity.tech/veloctl/latest'
 
 export async function latest(): Promise<string> {
   const response = await fetch(LATEST_URL)
