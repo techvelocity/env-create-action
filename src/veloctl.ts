@@ -3,8 +3,10 @@ import * as fs from 'fs'
 import * as tmp from 'tmp'
 import {ExecOutput, getExecOutput} from '@actions/exec'
 import YAML from 'yaml'
+import semver from 'semver'
 
 const RMCUP_CHAR = '[?1049l'
+const CREATOR_FLAG_MIN_VERSION = '0.4.0'
 
 async function execVeloctl(token: string, args: string[]): Promise<ExecOutput> {
   const output = await getExecOutput('veloctl', args, {
@@ -123,13 +125,14 @@ interface CreateOrUpdateParams {
   cliVersion: string
   envName: string
   services: string
+  creator?: string
 }
 
 export async function createOrUpdate(
   token: string,
   params: CreateOrUpdateParams
 ): Promise<boolean> {
-  const {envName, services} = params
+  const {cliVersion, envName, services} = params
   const exists = await envExists(token, envName)
   const planPath = await generatePlan(token, exists, envName, services)
 
@@ -138,6 +141,9 @@ export async function createOrUpdate(
   if (!exists) {
     verb = 'create'
 
+    if (params.creator && semver.gte(cliVersion, CREATOR_FLAG_MIN_VERSION)) {
+      flags.push('--creator', params.creator)
+    }
   }
 
   const args = ['env', verb, ...flags, envName]

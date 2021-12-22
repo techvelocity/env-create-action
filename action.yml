@@ -15,6 +15,10 @@ inputs:
     required: true
     description: "use Github Deployments API"
     default: "true"
+  use-gh-names:
+    required: true
+    description: "set the environment creator to be the Github user"
+    default: "true"
   version:
     required: false
     description: "specific veloctl version (default: latest)"

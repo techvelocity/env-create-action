@@ -55,4 +55,5 @@ The following inputs are optional:
 | Name                 | Description                                                                                                                                                                               | Default  |
 | -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
 | `use-gh-deployments` | Enables the usage of [Github Deployments API](https://docs.github.com/en/rest/reference/repos#deployments). When set to `true`, make sure the `GITHUB_TOKEN` environment variable is set. | `true`   |
+| `use-gh-names`       | Will create environments with the Github username of the user who invoked the action.                                                                                                     | `true`   |
 | `version`            | Select a specific version of `veloctl` to use.                                                                                                                                            | `latest` |
