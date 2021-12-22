@@ -25,12 +25,16 @@ async function run(): Promise<void> {
       deploymentId = await startDeployment(envName)
     }
 
-    const version = await resolveVersion(core.getInput('version'))
-    const veloctl = await download(version)
+    const cliVersion = await resolveVersion(core.getInput('version'))
+    const veloctl = await download(cliVersion)
     core.debug(`veloctl available at: ${veloctl}`)
 
     try {
-      await createOrUpdate(velocityToken, envName, services)
+      await createOrUpdate(velocityToken, {
+        envName,
+        services,
+        cliVersion
+      })
     } catch (e) {
       if (deploymentId) {
         await updateDeployment(deploymentId, envName, false)

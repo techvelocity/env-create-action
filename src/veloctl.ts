@@ -119,20 +119,28 @@ async function generatePlan(
   return tmpFile.name
 }
 
+interface CreateOrUpdateParams {
+  cliVersion: string
+  envName: string
+  services: string
+}
+
 export async function createOrUpdate(
   token: string,
-  envName: string,
-  services: string
+  params: CreateOrUpdateParams
 ): Promise<boolean> {
+  const {envName, services} = params
   const exists = await envExists(token, envName)
   const planPath = await generatePlan(token, exists, envName, services)
 
-  let verb = 'create'
-  if (exists) {
-    verb = 'update'
+  const flags = ['-d', 'full', '-f', planPath]
+  let verb = 'update'
+  if (!exists) {
+    verb = 'create'
+
   }
 
-  const args = ['env', verb, '-d', 'full', '-f', planPath, envName]
+  const args = ['env', verb, ...flags, envName]
   const output = await execVeloctl(token, args)
   const splitOutput = output.stdout.split(RMCUP_CHAR)
   const filteredStdout = splitOutput[splitOutput.length - 1]
