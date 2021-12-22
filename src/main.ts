@@ -1,7 +1,7 @@
 import * as core from '@actions/core'
+import {download, resolveVersion} from './download'
 import {startDeployment, updateDeployment} from './deployments'
 import {createOrUpdate} from './veloctl'
-import {download} from './download'
 
 async function run(): Promise<void> {
   try {
@@ -25,7 +25,8 @@ async function run(): Promise<void> {
       deploymentId = await startDeployment(envName)
     }
 
-    const veloctl = await download(core.getInput('version'))
+    const version = await resolveVersion(core.getInput('version'))
+    const veloctl = await download(version)
     core.debug(`veloctl available at: ${veloctl}`)
 
     try {
