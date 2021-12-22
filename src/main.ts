@@ -1,7 +1,8 @@
 import * as core from '@actions/core'
+import * as github from '@actions/github'
+import {download, resolveVersion} from './download'
 import {startDeployment, updateDeployment} from './deployments'
 import {createOrUpdate} from './veloctl'
-import {download} from './download'
 
 async function run(): Promise<void> {
   try {
@@ -25,11 +26,22 @@ async function run(): Promise<void> {
       deploymentId = await startDeployment(envName)
     }
 
-    const veloctl = await download(core.getInput('version'))
+    const cliVersion = await resolveVersion(core.getInput('version'))
+    const veloctl = await download(cliVersion)
     core.debug(`veloctl available at: ${veloctl}`)
 
+    let creator = undefined
+    if (core.getBooleanInput('use-gh-names')) {
+      creator = github.context.payload.sender?.login
+    }
+
     try {
-      await createOrUpdate(velocityToken, envName, services)
+      await createOrUpdate(velocityToken, {
+        envName,
+        services,
+        cliVersion,
+        creator
+      })
     } catch (e) {
       if (deploymentId) {
         await updateDeployment(deploymentId, envName, false)

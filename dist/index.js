@@ -144,7 +144,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.download = exports.latest = void 0;
+exports.download = exports.resolveVersion = exports.latest = void 0;
 const core = __importStar(__nccwpck_require__(2186));
 const path = __importStar(__nccwpck_require__(1017));
 const tc = __importStar(__nccwpck_require__(7784));
@@ -181,14 +181,20 @@ function getUrl(version) {
     }
     return `https://releases.velocity.tech/veloctl/v${version}/veloctl_${version}_${platform}_${arch}.tar.gz`;
 }
-function download(requestedVersion) {
+function resolveVersion(requestedVersion) {
     return __awaiter(this, void 0, void 0, function* () {
         let version = requestedVersion;
         if (!version || !semver_1.default.valid(version)) {
             version = yield latest();
         }
         core.debug(`Resolved veloctl version ${version}`);
-        const toolUrl = getUrl(version);
+        return version;
+    });
+}
+exports.resolveVersion = resolveVersion;
+function download(resolvedVersion) {
+    return __awaiter(this, void 0, void 0, function* () {
+        const toolUrl = getUrl(resolvedVersion);
         core.debug(`Download url: ${toolUrl}`);
         const archivePath = yield tc.downloadTool(toolUrl);
         const extractedPath = yield tc.extractTar(archivePath);
@@ -236,10 +242,12 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 const core = __importStar(__nccwpck_require__(2186));
+const github = __importStar(__nccwpck_require__(5438));
+const download_1 = __nccwpck_require__(5933);
 const deployments_1 = __nccwpck_require__(7906);
 const veloctl_1 = __nccwpck_require__(3706);
-const download_1 = __nccwpck_require__(5933);
 function run() {
+    var _a;
     return __awaiter(this, void 0, void 0, function* () {
         try {
             const velocityToken = core.getInput('velocity-token');
@@ -258,10 +266,20 @@ function run() {
             if (core.getBooleanInput('use-gh-deployments')) {
                 deploymentId = yield (0, deployments_1.startDeployment)(envName);
             }
-            const veloctl = yield (0, download_1.download)(core.getInput('version'));
+            const cliVersion = yield (0, download_1.resolveVersion)(core.getInput('version'));
+            const veloctl = yield (0, download_1.download)(cliVersion);
             core.debug(`veloctl available at: ${veloctl}`);
+            let creator = undefined;
+            if (core.getBooleanInput('use-gh-names')) {
+                creator = (_a = github.context.payload.sender) === null || _a === void 0 ? void 0 : _a.login;
+            }
             try {
-                yield (0, veloctl_1.createOrUpdate)(velocityToken, envName, services);
+                yield (0, veloctl_1.createOrUpdate)(velocityToken, {
+                    envName,
+                    services,
+                    cliVersion,
+                    creator
+                });
             }
             catch (e) {
                 if (deploymentId) {
@@ -328,7 +346,9 @@ const fs = __importStar(__nccwpck_require__(7147));
 const tmp = __importStar(__nccwpck_require__(8517));
 const exec_1 = __nccwpck_require__(1514);
 const yaml_1 = __importDefault(__nccwpck_require__(4603));
+const semver_1 = __importDefault(__nccwpck_require__(1383));
 const RMCUP_CHAR = '[?1049l';
+const CREATOR_FLAG_MIN_VERSION = '0.4.0';
 function execVeloctl(token, args) {
     return __awaiter(this, void 0, void 0, function* () {
         const output = yield (0, exec_1.getExecOutput)('veloctl', args, {
@@ -402,15 +422,20 @@ function generatePlan(token, exists, envName, services) {
         return tmpFile.name;
     });
 }
-function createOrUpdate(token, envName, services) {
+function createOrUpdate(token, params) {
     return __awaiter(this, void 0, void 0, function* () {
+        const { cliVersion, envName, services } = params;
         const exists = yield envExists(token, envName);
         const planPath = yield generatePlan(token, exists, envName, services);
-        let verb = 'create';
-        if (exists) {
-            verb = 'update';
+        const flags = ['-d', 'full', '-f', planPath];
+        let verb = 'update';
+        if (!exists) {
+            verb = 'create';
+            if (params.creator && semver_1.default.gte(cliVersion, CREATOR_FLAG_MIN_VERSION)) {
+                flags.push('--creator', params.creator);
+            }
         }
-        const args = ['env', verb, '-d', 'full', '-f', planPath, envName];
+        const args = ['env', verb, ...flags, envName];
         const output = yield execVeloctl(token, args);
         const splitOutput = output.stdout.split(RMCUP_CHAR);
         const filteredStdout = splitOutput[splitOutput.length - 1];
@@ -1756,6 +1781,221 @@ class ExecState extends events.EventEmitter {
     }
 }
 //# sourceMappingURL=toolrunner.js.map
+
+/***/ }),
+
+/***/ 4087:
+/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.Context = void 0;
+const fs_1 = __nccwpck_require__(7147);
+const os_1 = __nccwpck_require__(2037);
+class Context {
+    /**
+     * Hydrate the context from the environment
+     */
+    constructor() {
+        var _a, _b, _c;
+        this.payload = {};
+        if (process.env.GITHUB_EVENT_PATH) {
+            if (fs_1.existsSync(process.env.GITHUB_EVENT_PATH)) {
+                this.payload = JSON.parse(fs_1.readFileSync(process.env.GITHUB_EVENT_PATH, { encoding: 'utf8' }));
+            }
+            else {
+                const path = process.env.GITHUB_EVENT_PATH;
+                process.stdout.write(`GITHUB_EVENT_PATH ${path} does not exist${os_1.EOL}`);
+            }
+        }
+        this.eventName = process.env.GITHUB_EVENT_NAME;
+        this.sha = process.env.GITHUB_SHA;
+        this.ref = process.env.GITHUB_REF;
+        this.workflow = process.env.GITHUB_WORKFLOW;
+        this.action = process.env.GITHUB_ACTION;
+        this.actor = process.env.GITHUB_ACTOR;
+        this.job = process.env.GITHUB_JOB;
+        this.runNumber = parseInt(process.env.GITHUB_RUN_NUMBER, 10);
+        this.runId = parseInt(process.env.GITHUB_RUN_ID, 10);
+        this.apiUrl = (_a = process.env.GITHUB_API_URL) !== null && _a !== void 0 ? _a : `https://api.github.com`;
+        this.serverUrl = (_b = process.env.GITHUB_SERVER_URL) !== null && _b !== void 0 ? _b : `https://github.com`;
+        this.graphqlUrl = (_c = process.env.GITHUB_GRAPHQL_URL) !== null && _c !== void 0 ? _c : `https://api.github.com/graphql`;
+    }
+    get issue() {
+        const payload = this.payload;
+        return Object.assign(Object.assign({}, this.repo), { number: (payload.issue || payload.pull_request || payload).number });
+    }
+    get repo() {
+        if (process.env.GITHUB_REPOSITORY) {
+            const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
+            return { owner, repo };
+        }
+        if (this.payload.repository) {
+            return {
+                owner: this.payload.repository.owner.login,
+                repo: this.payload.repository.name
+            };
+        }
+        throw new Error("context.repo requires a GITHUB_REPOSITORY environment variable like 'owner/repo'");
+    }
+}
+exports.Context = Context;
+//# sourceMappingURL=context.js.map
+
+/***/ }),
+
+/***/ 5438:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    Object.defineProperty(o, k2, { enumerable: true, get: function() { return m[k]; } });
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || function (mod) {
+    if (mod && mod.__esModule) return mod;
+    var result = {};
+    if (mod != null) for (var k in mod) if (k !== "default" && Object.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    __setModuleDefault(result, mod);
+    return result;
+};
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.getOctokit = exports.context = void 0;
+const Context = __importStar(__nccwpck_require__(4087));
+const utils_1 = __nccwpck_require__(3030);
+exports.context = new Context.Context();
+/**
+ * Returns a hydrated octokit ready to use for GitHub Actions
+ *
+ * @param     token    the repo PAT or GITHUB_TOKEN
+ * @param     options  other options to set
+ */
+function getOctokit(token, options) {
+    return new utils_1.GitHub(utils_1.getOctokitOptions(token, options));
+}
+exports.getOctokit = getOctokit;
+//# sourceMappingURL=github.js.map
+
+/***/ }),
+
+/***/ 7914:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    Object.defineProperty(o, k2, { enumerable: true, get: function() { return m[k]; } });
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || function (mod) {
+    if (mod && mod.__esModule) return mod;
+    var result = {};
+    if (mod != null) for (var k in mod) if (k !== "default" && Object.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    __setModuleDefault(result, mod);
+    return result;
+};
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.getApiBaseUrl = exports.getProxyAgent = exports.getAuthString = void 0;
+const httpClient = __importStar(__nccwpck_require__(9925));
+function getAuthString(token, options) {
+    if (!token && !options.auth) {
+        throw new Error('Parameter token or opts.auth is required');
+    }
+    else if (token && options.auth) {
+        throw new Error('Parameters token and opts.auth may not both be specified');
+    }
+    return typeof options.auth === 'string' ? options.auth : `token ${token}`;
+}
+exports.getAuthString = getAuthString;
+function getProxyAgent(destinationUrl) {
+    const hc = new httpClient.HttpClient();
+    return hc.getAgent(destinationUrl);
+}
+exports.getProxyAgent = getProxyAgent;
+function getApiBaseUrl() {
+    return process.env['GITHUB_API_URL'] || 'https://api.github.com';
+}
+exports.getApiBaseUrl = getApiBaseUrl;
+//# sourceMappingURL=utils.js.map
+
+/***/ }),
+
+/***/ 3030:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    Object.defineProperty(o, k2, { enumerable: true, get: function() { return m[k]; } });
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || function (mod) {
+    if (mod && mod.__esModule) return mod;
+    var result = {};
+    if (mod != null) for (var k in mod) if (k !== "default" && Object.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    __setModuleDefault(result, mod);
+    return result;
+};
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.getOctokitOptions = exports.GitHub = exports.context = void 0;
+const Context = __importStar(__nccwpck_require__(4087));
+const Utils = __importStar(__nccwpck_require__(7914));
+// octokit + plugins
+const core_1 = __nccwpck_require__(6762);
+const plugin_rest_endpoint_methods_1 = __nccwpck_require__(3044);
+const plugin_paginate_rest_1 = __nccwpck_require__(4193);
+exports.context = new Context.Context();
+const baseUrl = Utils.getApiBaseUrl();
+const defaults = {
+    baseUrl,
+    request: {
+        agent: Utils.getProxyAgent(baseUrl)
+    }
+};
+exports.GitHub = core_1.Octokit.plugin(plugin_rest_endpoint_methods_1.restEndpointMethods, plugin_paginate_rest_1.paginateRest).defaults(defaults);
+/**
+ * Convience function to correctly format Octokit Options to pass into the constructor.
+ *
+ * @param     token    the repo PAT or GITHUB_TOKEN
+ * @param     options  other options to set
+ */
+function getOctokitOptions(token, options) {
+    const opts = Object.assign({}, options || {}); // Shallow clone - don't mutate the object provided by the caller
+    // Auth
+    const auth = Utils.getAuthString(token, opts);
+    if (auth) {
+        opts.auth = auth;
+    }
+    return opts;
+}
+exports.getOctokitOptions = getOctokitOptions;
+//# sourceMappingURL=utils.js.map
 
 /***/ }),
 
@@ -13952,7 +14192,7 @@ function setup(env) {
 	createDebug.disable = disable;
 	createDebug.enable = enable;
 	createDebug.enabled = enabled;
-	createDebug.humanize = __nccwpck_require__(900);
+	createDebug.humanize = __nccwpck_require__(9992);
 
 	Object.keys(env).forEach(key => {
 		createDebug[key] = env[key];
@@ -33591,7 +33831,7 @@ module.exports = createHttpProxyAgent;
 
 /***/ }),
 
-/***/ 5098:
+/***/ 3734:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
 "use strict";
@@ -33786,7 +34026,7 @@ function omit(obj, ...keys) {
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
-const agent_1 = __importDefault(__nccwpck_require__(5098));
+const agent_1 = __importDefault(__nccwpck_require__(3734));
 function createHttpsProxyAgent(opts) {
     return new agent_1.default(opts);
 }
@@ -34498,7 +34738,7 @@ module.exports = {
 
     'eucjp': {
         type: '_dbcs',
-        table: function() { return __nccwpck_require__(1532) },
+        table: function() { return __nccwpck_require__(5633) },
         encodeAdd: {'\u00a5': 0x5C, '\u203E': 0x7E},
     },
 
@@ -38625,7 +38865,7 @@ function regExpEscape (s) {
 
 /***/ }),
 
-/***/ 900:
+/***/ 9992:
 /***/ ((module) => {
 
 /**
@@ -43879,7 +44119,7 @@ function valueInRange(start, value, finish) {
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.isGMT = exports.dnsLookup = void 0;
-const dns_1 = __nccwpck_require__(9523);
+const dns_1 = __nccwpck_require__(7578);
 function dnsLookup(host, opts) {
     return new Promise((resolve, reject) => {
         dns_1.lookup(host, opts, (err, res) => {
@@ -47713,7 +47953,7 @@ module.exports = safer
 
 /***/ }),
 
-/***/ 4758:
+/***/ 1532:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
 const ANY = Symbol('SemVer ANY')
@@ -47846,8 +48086,8 @@ class Comparator {
 module.exports = Comparator
 
 const parseOptions = __nccwpck_require__(785)
-const {re, t} = __nccwpck_require__(2566)
-const cmp = __nccwpck_require__(4359)
+const {re, t} = __nccwpck_require__(9523)
+const cmp = __nccwpck_require__(5098)
 const debug = __nccwpck_require__(427)
 const SemVer = __nccwpck_require__(8088)
 const Range = __nccwpck_require__(9828)
@@ -48048,7 +48288,7 @@ const LRU = __nccwpck_require__(7129)
 const cache = new LRU({ max: 1000 })
 
 const parseOptions = __nccwpck_require__(785)
-const Comparator = __nccwpck_require__(4758)
+const Comparator = __nccwpck_require__(1532)
 const debug = __nccwpck_require__(427)
 const SemVer = __nccwpck_require__(8088)
 const {
@@ -48057,7 +48297,7 @@ const {
   comparatorTrimReplace,
   tildeTrimReplace,
   caretTrimReplace
-} = __nccwpck_require__(2566)
+} = __nccwpck_require__(9523)
 
 const isNullSet = c => c.value === '<0.0.0-0'
 const isAny = c => c.value === ''
@@ -48377,7 +48617,7 @@ const testSet = (set, version, options) => {
 
 const debug = __nccwpck_require__(427)
 const { MAX_LENGTH, MAX_SAFE_INTEGER } = __nccwpck_require__(2293)
-const { re, t } = __nccwpck_require__(2566)
+const { re, t } = __nccwpck_require__(9523)
 
 const parseOptions = __nccwpck_require__(785)
 const { compareIdentifiers } = __nccwpck_require__(2463)
@@ -48679,7 +48919,7 @@ module.exports = clean
 
 /***/ }),
 
-/***/ 4359:
+/***/ 5098:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
 const eq = __nccwpck_require__(1898)
@@ -48739,7 +48979,7 @@ module.exports = cmp
 
 const SemVer = __nccwpck_require__(8088)
 const parse = __nccwpck_require__(5925)
-const {re, t} = __nccwpck_require__(2566)
+const {re, t} = __nccwpck_require__(9523)
 
 const coerce = (version, options) => {
   if (version instanceof SemVer) {
@@ -48888,7 +49128,7 @@ module.exports = gte
 
 /***/ }),
 
-/***/ 929:
+/***/ 900:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
 const SemVer = __nccwpck_require__(8088)
@@ -48964,7 +49204,7 @@ module.exports = neq
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
 const {MAX_LENGTH} = __nccwpck_require__(2293)
-const { re, t } = __nccwpck_require__(2566)
+const { re, t } = __nccwpck_require__(9523)
 const SemVer = __nccwpck_require__(8088)
 
 const parseOptions = __nccwpck_require__(785)
@@ -49087,7 +49327,7 @@ module.exports = valid
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
 // just pre-load all the stuff that index.js lazily exports
-const internalRe = __nccwpck_require__(2566)
+const internalRe = __nccwpck_require__(9523)
 module.exports = {
   re: internalRe.re,
   src: internalRe.src,
@@ -49099,7 +49339,7 @@ module.exports = {
   parse: __nccwpck_require__(5925),
   valid: __nccwpck_require__(9601),
   clean: __nccwpck_require__(8848),
-  inc: __nccwpck_require__(929),
+  inc: __nccwpck_require__(900),
   diff: __nccwpck_require__(4297),
   major: __nccwpck_require__(6688),
   minor: __nccwpck_require__(8447),
@@ -49117,9 +49357,9 @@ module.exports = {
   neq: __nccwpck_require__(6017),
   gte: __nccwpck_require__(5522),
   lte: __nccwpck_require__(7520),
-  cmp: __nccwpck_require__(4359),
+  cmp: __nccwpck_require__(5098),
   coerce: __nccwpck_require__(3466),
-  Comparator: __nccwpck_require__(4758),
+  Comparator: __nccwpck_require__(1532),
   Range: __nccwpck_require__(9828),
   satisfies: __nccwpck_require__(6055),
   toComparators: __nccwpck_require__(2706),
@@ -49226,7 +49466,7 @@ module.exports = parseOptions
 
 /***/ }),
 
-/***/ 2566:
+/***/ 9523:
 /***/ ((module, exports, __nccwpck_require__) => {
 
 const { MAX_SAFE_COMPONENT_LENGTH } = __nccwpck_require__(2293)
@@ -49585,7 +49825,7 @@ module.exports = minVersion
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
 const SemVer = __nccwpck_require__(8088)
-const Comparator = __nccwpck_require__(4758)
+const Comparator = __nccwpck_require__(1532)
 const {ANY} = Comparator
 const Range = __nccwpck_require__(9828)
 const satisfies = __nccwpck_require__(6055)
@@ -49723,7 +49963,7 @@ module.exports = (versions, range, options) => {
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
 const Range = __nccwpck_require__(9828)
-const Comparator = __nccwpck_require__(4758)
+const Comparator = __nccwpck_require__(1532)
 const { ANY } = Comparator
 const satisfies = __nccwpck_require__(6055)
 const compare = __nccwpck_require__(4309)
@@ -51379,7 +51619,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-const dns_1 = __importDefault(__nccwpck_require__(9523));
+const dns_1 = __importDefault(__nccwpck_require__(7578));
 const tls_1 = __importDefault(__nccwpck_require__(4404));
 const url_1 = __importDefault(__nccwpck_require__(7310));
 const debug_1 = __importDefault(__nccwpck_require__(8237));
@@ -62014,7 +62254,7 @@ module.exports = require("crypto");
 
 /***/ }),
 
-/***/ 9523:
+/***/ 7578:
 /***/ ((module) => {
 
 "use strict";
@@ -68837,7 +69077,7 @@ module.exports = JSON.parse('[["0","\\u0000",127],["a140","　，、。．‧；
 
 /***/ }),
 
-/***/ 1532:
+/***/ 5633:
 /***/ ((module) => {
 
 "use strict";
