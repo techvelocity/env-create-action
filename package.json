@@ -37,7 +37,7 @@
   },
   "devDependencies": {
     "@types/node": "^17.0.8",
-    "@types/node-fetch": "^2.5.12",
+    "@types/node-fetch": "^2.6.1",
     "@types/semver": "^7.3.9",
     "@types/tmp": "^0.2.3",
     "@typescript-eslint/parser": "^5.9.0",
