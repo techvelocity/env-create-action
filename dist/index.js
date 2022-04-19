@@ -408,17 +408,28 @@ function generatePlan(token, exists, envName, services) {
         const plan = yield getPlan(token, exists, envName, services);
         const servicesMap = services.split(',').reduce((prev, service) => {
             // make it a map for easier access
-            const [name, version] = service.split(':');
-            prev[name] = version;
+            // each service can be either "name:tag" or "name:image:tag"
+            const [name, image, version] = service.split(':');
+            // if no version is supplied (we got "name:tag"), then we need to do a switch:
+            // the image variable is holding the version
+            if (!version) {
+                prev[name] = [undefined, image];
+            }
+            else {
+                prev[name] = [image, version];
+            }
             return prev;
         }, {});
         const yamls = plan.map(blueprint => {
             const name = blueprint.ServiceDefinitionName;
             const serviceVersion = servicesMap[name];
-            if (serviceVersion !== undefined) {
-                blueprint.Plugin.Image.Tag = serviceVersion;
+            if (serviceVersion[1] !== undefined) {
+                blueprint.Plugin.Image.Tag = serviceVersion[1];
                 blueprint.Plugin.Name = `${name}-${process.env['GITHUB_RUN_ID']}`; // randomize the name to trigger an update
                 blueprint.Plugin.Image.AlwaysPull = true; // make sure it would pull
+                if (serviceVersion[0] !== undefined) {
+                    blueprint.Plugin.Image.Image = serviceVersion[0];
+                }
             }
             if (name in servicesMap) {
                 delete servicesMap[name];
