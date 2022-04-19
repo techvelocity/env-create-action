@@ -423,15 +423,16 @@ function generatePlan(token, exists, envName, services) {
         const yamls = plan.map(blueprint => {
             const name = blueprint.ServiceDefinitionName;
             const serviceVersion = servicesMap[name];
-            if (serviceVersion[1] !== undefined) {
-                blueprint.Plugin.Image.Tag = serviceVersion[1];
-                blueprint.Plugin.Name = `${name}-${process.env['GITHUB_RUN_ID']}`; // randomize the name to trigger an update
-                blueprint.Plugin.Image.AlwaysPull = true; // make sure it would pull
-                if (serviceVersion[0] !== undefined) {
-                    blueprint.Plugin.Image.Image = serviceVersion[0];
+            if (serviceVersion !== undefined) {
+                const [image, version] = serviceVersion;
+                if (version !== undefined) {
+                    blueprint.Plugin.Image.Tag = version;
+                    blueprint.Plugin.Name = `${name}-${process.env['GITHUB_RUN_ID']}`; // randomize the name to trigger an update
+                    blueprint.Plugin.Image.AlwaysPull = true; // make sure it would pull
+                    if (image !== undefined) {
+                        blueprint.Plugin.Image.Image = image;
+                    }
                 }
-            }
-            if (name in servicesMap) {
                 delete servicesMap[name];
             }
             const document = new yaml_1.default.Document();
