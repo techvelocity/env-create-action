@@ -43,7 +43,6 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.updateDeployment = exports.startDeployment = void 0;
 const core = __importStar(__nccwpck_require__(2186));
 const action_1 = __nccwpck_require__(1231);
-const octokit = new action_1.Octokit();
 const [owner, repo] = ((_a = process.env.GITHUB_REPOSITORY) !== null && _a !== void 0 ? _a : '?/?').split('/');
 function environmentUrl(envName) {
     const { VELOCITY_DOMAIN: velocityDomain, VELOCITY_SERVICE: velocityService } = process.env;
@@ -56,6 +55,7 @@ function environmentUrl(envName) {
 }
 function startDeployment(name) {
     return __awaiter(this, void 0, void 0, function* () {
+        const octokit = new action_1.Octokit();
         const ref = process.env.GITHUB_HEAD_REF || process.env.GITHUB_REF || '?';
         const deployments = yield octokit.repos.listDeployments({
             owner,
@@ -96,6 +96,7 @@ function startDeployment(name) {
 exports.startDeployment = startDeployment;
 function updateDeployment(deploymentId, envName, success) {
     return __awaiter(this, void 0, void 0, function* () {
+        const octokit = new action_1.Octokit();
         yield octokit.repos.createDeploymentStatus({
             owner,
             repo,

@@ -1,7 +1,6 @@
 import * as core from '@actions/core'
 import {Octokit} from '@octokit/action'
 
-const octokit = new Octokit()
 const [owner, repo] = (process.env.GITHUB_REPOSITORY ?? '?/?').split('/')
 
 function environmentUrl(envName: string): string {
@@ -18,6 +17,7 @@ function environmentUrl(envName: string): string {
 }
 
 export async function startDeployment(name: string): Promise<number> {
+  const octokit = new Octokit()
   const ref = process.env.GITHUB_HEAD_REF || process.env.GITHUB_REF || '?'
   const deployments = await octokit.repos.listDeployments({
     owner,
@@ -66,6 +66,7 @@ export async function updateDeployment(
   envName: string,
   success: boolean
 ): Promise<void> {
+  const octokit = new Octokit()
   await octokit.repos.createDeploymentStatus({
     owner,
     repo,
