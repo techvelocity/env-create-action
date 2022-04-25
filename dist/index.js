@@ -43,7 +43,6 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.updateDeployment = exports.startDeployment = void 0;
 const core = __importStar(__nccwpck_require__(2186));
 const action_1 = __nccwpck_require__(1231);
-const octokit = new action_1.Octokit();
 const [owner, repo] = ((_a = process.env.GITHUB_REPOSITORY) !== null && _a !== void 0 ? _a : '?/?').split('/');
 function environmentUrl(envName) {
     const { VELOCITY_DOMAIN: velocityDomain, VELOCITY_SERVICE: velocityService } = process.env;
@@ -56,6 +55,7 @@ function environmentUrl(envName) {
 }
 function startDeployment(name) {
     return __awaiter(this, void 0, void 0, function* () {
+        const octokit = new action_1.Octokit();
         const ref = process.env.GITHUB_HEAD_REF || process.env.GITHUB_REF || '?';
         const deployments = yield octokit.repos.listDeployments({
             owner,
@@ -96,6 +96,7 @@ function startDeployment(name) {
 exports.startDeployment = startDeployment;
 function updateDeployment(deploymentId, envName, success) {
     return __awaiter(this, void 0, void 0, function* () {
+        const octokit = new action_1.Octokit();
         yield octokit.repos.createDeploymentStatus({
             owner,
             repo,
@@ -408,19 +409,31 @@ function generatePlan(token, exists, envName, services) {
         const plan = yield getPlan(token, exists, envName, services);
         const servicesMap = services.split(',').reduce((prev, service) => {
             // make it a map for easier access
-            const [name, version] = service.split(':');
-            prev[name] = version;
+            // each service can be either "name:tag" or "name:image:tag"
+            const [name, image, version] = service.split(':');
+            // if no version is supplied (we got "name:tag"), then we need to do a switch:
+            // the image variable is holding the version
+            if (!version) {
+                prev[name] = [undefined, image];
+            }
+            else {
+                prev[name] = [image, version];
+            }
             return prev;
         }, {});
         const yamls = plan.map(blueprint => {
             const name = blueprint.ServiceDefinitionName;
             const serviceVersion = servicesMap[name];
             if (serviceVersion !== undefined) {
-                blueprint.Plugin.Image.Tag = serviceVersion;
-                blueprint.Plugin.Name = `${name}-${process.env['GITHUB_RUN_ID']}`; // randomize the name to trigger an update
-                blueprint.Plugin.Image.AlwaysPull = true; // make sure it would pull
-            }
-            if (name in servicesMap) {
+                const [image, version] = serviceVersion;
+                if (version !== undefined) {
+                    blueprint.Plugin.Image.Tag = version;
+                    blueprint.Plugin.Name = `${name}-${process.env['GITHUB_RUN_ID']}`; // randomize the name to trigger an update
+                    blueprint.Plugin.Image.AlwaysPull = true; // make sure it would pull
+                    if (image !== undefined) {
+                        blueprint.Plugin.Image.Image = image;
+                    }
+                }
                 delete servicesMap[name];
             }
             const document = new yaml_1.default.Document();

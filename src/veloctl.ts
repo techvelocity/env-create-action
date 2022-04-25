@@ -84,21 +84,35 @@ async function generatePlan(
 
   const servicesMap = services.split(',').reduce((prev, service) => {
     // make it a map for easier access
-    const [name, version] = service.split(':')
-    prev[name] = version
+    // each service can be either "name:tag" or "name:image:tag"
+    const [name, image, version] = service.split(':')
+
+    // if no version is supplied (we got "name:tag"), then we need to do a switch:
+    // the image variable is holding the version
+    if (!version) {
+      prev[name] = [undefined, image]
+    } else {
+      prev[name] = [image, version]
+    }
     return prev
-  }, {} as {[K in string]: string | undefined})
+  }, {} as {[K in string]: [string | undefined, string | undefined]})
 
   const yamls = plan.map(blueprint => {
     const name = blueprint.ServiceDefinitionName
 
     const serviceVersion = servicesMap[name]
     if (serviceVersion !== undefined) {
-      blueprint.Plugin.Image.Tag = serviceVersion
-      blueprint.Plugin.Name = `${name}-${process.env['GITHUB_RUN_ID']}` // randomize the name to trigger an update
-      blueprint.Plugin.Image.AlwaysPull = true // make sure it would pull
-    }
-    if (name in servicesMap) {
+      const [image, version] = serviceVersion
+      if (version !== undefined) {
+        blueprint.Plugin.Image.Tag = version
+        blueprint.Plugin.Name = `${name}-${process.env['GITHUB_RUN_ID']}` // randomize the name to trigger an update
+        blueprint.Plugin.Image.AlwaysPull = true // make sure it would pull
+
+        if (image !== undefined) {
+          blueprint.Plugin.Image.Image = image
+        }
+      }
+
       delete servicesMap[name]
     }
 
