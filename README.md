@@ -47,7 +47,7 @@ The following inputs are mandatory:
 | Name             | Description                                                                                                    |
 | ---------------- | -------------------------------------------------------------------------------------------------------------- |
 | `velocity-token` | Velocity's authentication token. It is strongly recommended that this value be retrieved from a GitHub secret. |
-| `services`       | A list of one or more services (and their new tags).                                                           |
+| `services`       | A list of one or more services (and their new tags). Format can be either `name:tag` or `name:image:tag`.      |
 | `name`           | The environment name. It is strongly recommended to have a constant name for the same PR / branch.             |
 
 The following inputs are optional:
