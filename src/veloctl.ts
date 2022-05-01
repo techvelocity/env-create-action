@@ -116,8 +116,7 @@ async function generatePlan(
       delete servicesMap[name]
     }
 
-    const document = new YAML.Document()
-    document.contents = blueprint
+    const document = new YAML.Document(blueprint)
     return document.toString()
   })
 
