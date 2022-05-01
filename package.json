@@ -33,7 +33,7 @@
     "node-fetch": "^2.6.6",
     "semver": "^7.3.5",
     "tmp": "^0.2.1",
-    "yaml": "^1.10.2"
+    "yaml": "^2.0.1"
   },
   "devDependencies": {
     "@types/node": "^17.0.8",
