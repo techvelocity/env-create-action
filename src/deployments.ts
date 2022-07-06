@@ -4,8 +4,7 @@ import {Octokit} from '@octokit/action'
 const [owner, repo] = (process.env.GITHUB_REPOSITORY ?? '?/?').split('/')
 
 function environmentUrl(envName: string): string {
-  const {VELOCITY_DOMAIN: velocityDomain, VELOCITY_SERVICE: velocityService} =
-    process.env
+  const {VELOCITY_DOMAIN: velocityDomain, VELOCITY_SERVICE: velocityService} = process.env
 
   let url = ''
   if (velocityDomain && velocityService) {
@@ -61,11 +60,7 @@ export async function startDeployment(name: string): Promise<number> {
   return deploymentId
 }
 
-export async function updateDeployment(
-  deploymentId: number,
-  envName: string,
-  success: boolean
-): Promise<void> {
+export async function updateDeployment(deploymentId: number, envName: string, success: boolean): Promise<void> {
   const octokit = new Octokit()
   await octokit.repos.createDeploymentStatus({
     owner,

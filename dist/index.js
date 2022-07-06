@@ -364,6 +364,7 @@ const tmp = __importStar(__nccwpck_require__(8517));
 const exec_1 = __nccwpck_require__(1514);
 const yaml_1 = __importDefault(__nccwpck_require__(4083));
 const semver_1 = __importDefault(__nccwpck_require__(1383));
+// The scroll character
 const RMCUP_CHAR = '[?1049l';
 const CREATOR_FLAG_MIN_VERSION = '0.4.0';
 function execVeloctl(token, args) {
@@ -451,6 +452,7 @@ function generatePlan(token, exists, envName, services) {
     });
 }
 function createOrUpdate(token, params) {
+    var _a, _b;
     return __awaiter(this, void 0, void 0, function* () {
         const { cliVersion, envName, services } = params;
         const exists = yield envExists(token, envName);
@@ -468,7 +470,15 @@ function createOrUpdate(token, params) {
         const splitOutput = output.stdout.split(RMCUP_CHAR);
         const filteredStdout = splitOutput[splitOutput.length - 1];
         if (output.exitCode !== 0) {
-            throw new Error(`failed to ${verb} (exitCode=${output.exitCode}, args=${args}): ${splitOutput}`);
+            core.startGroup('Complete output');
+            core.info(splitOutput.toString());
+            core.endGroup();
+            const envStatus = (_a = filteredStdout.match(/^Overall status: (.+)$/m)) === null || _a === void 0 ? void 0 : _a[1];
+            const statusReason = (_b = filteredStdout.match(/^Reason: (.+)$/m)) === null || _b === void 0 ? void 0 : _b[1];
+            if (envStatus && statusReason) {
+                core.error(`Created environment is ${envStatus.toLowerCase()} due to: ${statusReason}`);
+            }
+            throw new Error(`failed to ${verb} (args=${args}): ${filteredStdout}`);
         }
         core.info(`${verb} output:\n${filteredStdout}`);
         return true;

@@ -5,6 +5,7 @@ import {ExecOutput, getExecOutput} from '@actions/exec'
 import YAML from 'yaml'
 import semver from 'semver'
 
+// The scroll character
 const RMCUP_CHAR = '[?1049l'
 const CREATOR_FLAG_MIN_VERSION = '0.4.0'
 
@@ -22,10 +23,7 @@ async function execVeloctl(token: string, args: string[]): Promise<ExecOutput> {
   return output
 }
 
-export async function envExists(
-  token: string,
-  envName: string
-): Promise<boolean> {
+export async function envExists(token: string, envName: string): Promise<boolean> {
   try {
     const output = await execVeloctl(token, ['env', 'status', envName])
     return output.exitCode === 0 || !output.stdout.includes('was not found')
@@ -49,12 +47,7 @@ interface Blueprint {
   ServiceDefinitionName: string
 }
 
-async function getPlan(
-  token: string,
-  exists: boolean,
-  envName: string,
-  services: string
-): Promise<Blueprint[]> {
+async function getPlan(token: string, exists: boolean, envName: string, services: string): Promise<Blueprint[]> {
   let args
   if (exists) {
     args = ['env', 'export', '-f', '-', envName]
@@ -64,22 +57,13 @@ async function getPlan(
 
   const output = await execVeloctl(token, args)
   if (output.exitCode !== 0) {
-    throw new Error(
-      `Error planning (exitcode=${output.exitCode}): ${output.stdout}`
-    )
+    throw new Error(`Error planning (exitcode=${output.exitCode}): ${output.stdout}`)
   }
 
-  return YAML.parseAllDocuments(output.stdout).map(document =>
-    document.toJSON()
-  )
+  return YAML.parseAllDocuments(output.stdout).map(document => document.toJSON())
 }
 
-async function generatePlan(
-  token: string,
-  exists: boolean,
-  envName: string,
-  services: string
-): Promise<string> {
+async function generatePlan(token: string, exists: boolean, envName: string, services: string): Promise<string> {
   const plan = await getPlan(token, exists, envName, services)
 
   const servicesMap = services.split(',').reduce((prev, service) => {
@@ -122,9 +106,7 @@ async function generatePlan(
 
   const notInMap = Object.keys(servicesMap)
   if (notInMap.length > 0) {
-    throw new Error(
-      `some services do not appear in the plan: ${notInMap.join(', ')}`
-    )
+    throw new Error(`some services do not appear in the plan: ${notInMap.join(', ')}`)
   }
 
   const tmpFile = tmp.fileSync({
@@ -141,10 +123,7 @@ interface CreateOrUpdateParams {
   creator?: string
 }
 
-export async function createOrUpdate(
-  token: string,
-  params: CreateOrUpdateParams
-): Promise<boolean> {
+export async function createOrUpdate(token: string, params: CreateOrUpdateParams): Promise<boolean> {
   const {cliVersion, envName, services} = params
   const exists = await envExists(token, envName)
   const planPath = await generatePlan(token, exists, envName, services)
@@ -165,9 +144,18 @@ export async function createOrUpdate(
   const filteredStdout = splitOutput[splitOutput.length - 1]
 
   if (output.exitCode !== 0) {
-    throw new Error(
-      `failed to ${verb} (exitCode=${output.exitCode}, args=${args}): ${splitOutput}`
-    )
+    core.startGroup('Complete output')
+    core.info(splitOutput.toString())
+    core.endGroup()
+
+    const envStatus = filteredStdout.match(/^Overall status: (.+)$/m)?.[1]
+    const statusReason = filteredStdout.match(/^Reason: (.+)$/m)?.[1]
+
+    if (envStatus && statusReason) {
+      core.error(`Created environment is ${envStatus.toLowerCase()} due to: ${statusReason}`)
+    }
+
+    throw new Error(`failed to ${verb} (args=${args}): ${filteredStdout}`)
   }
 
   core.info(`${verb} output:\n${filteredStdout}`)
