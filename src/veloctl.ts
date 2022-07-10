@@ -2,6 +2,7 @@ import * as core from '@actions/core'
 import * as fs from 'fs'
 import * as tmp from 'tmp'
 import {ExecOutput, getExecOutput} from '@actions/exec'
+import {reportEnvironmentFailure, reportEnvironmentSuccess} from './error-reporting'
 import YAML from 'yaml'
 import semver from 'semver'
 
@@ -148,14 +149,11 @@ export async function createOrUpdate(token: string, params: CreateOrUpdateParams
     core.info(splitOutput.toString())
     core.endGroup()
 
-    const envStatus = filteredStdout.match(/^Overall status: (.+)$/m)?.[1]
-    const statusReason = filteredStdout.match(/^Reason: (.+)$/m)?.[1]
-
-    if (envStatus && statusReason) {
-      core.error(`Created environment is ${envStatus.toLowerCase()} due to: ${statusReason}`)
-    }
+    reportEnvironmentFailure(verb, filteredStdout)
 
     throw new Error(`failed to ${verb} (args=${args}): ${filteredStdout}`)
+  } else {
+    reportEnvironmentSuccess()
   }
 
   core.info(`${verb} output:\n${filteredStdout}`)

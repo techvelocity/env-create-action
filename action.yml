@@ -19,6 +19,10 @@ inputs:
     required: true
     description: "set the environment creator to be the Github user"
     default: "true"
+  use-gh-comments:
+    required: true
+    description: "report status using Github comments"
+    default: "true"
   version:
     required: false
     description: "specific veloctl version (default: latest)"
