@@ -75,6 +75,7 @@ function startDeployment(name) {
             repo,
             ref,
             environment: name,
+            description: 'Velocity environment deployment',
             required_contexts: [],
             transient_environment: true,
             auto_merge: false
@@ -88,6 +89,7 @@ function startDeployment(name) {
             repo,
             deployment_id: deploymentId,
             state: 'in_progress',
+            description: 'The Velocity environment deployment is in progress...',
             environment_url: environmentUrl(name)
         });
         return deploymentId;
@@ -103,6 +105,9 @@ function updateDeployment(deploymentId, envName, success) {
             deployment_id: deploymentId,
             environment_url: environmentUrl(envName),
             state: success ? 'success' : 'failure',
+            description: success
+                ? 'The Velocity environment is active.'
+                : "The Velocity environment deployment has failed. See more details in the deployment's output.",
             log_url: `${process.env.GITHUB_SERVER_URL}/${owner}/${repo}/actions/runs/${process.env.GITHUB_RUN_ID}`
         });
     });
@@ -283,40 +288,43 @@ function findPRCommentId() {
 }
 function reportEnvironmentFailure(verb, stdout) {
     var _a, _b, _c;
-    const envStatus = (_a = stdout.match(/^Overall status: (.+)$/m)) === null || _a === void 0 ? void 0 : _a[1];
-    const statusReason = (_b = stdout.match(/^Reason: (.+)$/m)) === null || _b === void 0 ? void 0 : _b[1];
-    if (envStatus && statusReason) {
-        const messageVerb = verb[0].toUpperCase() + verb.substring(1);
-        const message = `${messageVerb} Velocity environment has ${envStatus.toLowerCase()} due to:\n`;
-        core.error(`${message}\n${statusReason}`);
-        // Post an appropriate comment if so desired
-        if (core.getBooleanInput('use-gh-comments') && ((_c = github.context.issue) === null || _c === void 0 ? void 0 : _c.number) > 0) {
-            const runHref = `${github.context.serverUrl}/${github.context.issue.owner}/${github.context.issue.repo}/actions/runs/${github.context.runId}`;
-            (() => __awaiter(this, void 0, void 0, function* () {
+    return __awaiter(this, void 0, void 0, function* () {
+        const envStatus = (_a = stdout.match(/^Overall status: (.+)$/m)) === null || _a === void 0 ? void 0 : _a[1];
+        const statusReason = (_b = stdout.match(/^Reason: (.+)$/m)) === null || _b === void 0 ? void 0 : _b[1];
+        if (envStatus && statusReason) {
+            // create -> Creating, update -> Updating
+            const messageVerb = `${verb[0].toUpperCase()}${verb.slice(1, -1)}ing`;
+            const message = `${messageVerb} the Velocity environment has ${envStatus.toLowerCase()} due to:\n`;
+            core.error(`${message}\n${statusReason}`);
+            // Post an appropriate comment if so desired
+            if (process.env.GITHUB_TOKEN && core.getBooleanInput('use-gh-comments') && ((_c = github.context.issue) === null || _c === void 0 ? void 0 : _c.number) > 0) {
+                const runHref = `${github.context.serverUrl}/${github.context.issue.owner}/${github.context.issue.repo}/actions/runs/${github.context.runId}`;
                 try {
                     yield postFailureComment(verb, `${message}\`${statusReason}\`\n[See related run](${runHref})`);
                 }
                 catch (e) {
                     core.debug(`Unable to post a comment: ${e}`);
                 }
-            }))();
+            }
         }
-    }
+        else {
+            core.info(`Failed to extract the failure reason from the output (status: "${envStatus}", reason: "${statusReason}")`);
+        }
+    });
 }
 exports.reportEnvironmentFailure = reportEnvironmentFailure;
 function reportEnvironmentSuccess() {
     var _a;
-    if (core.getBooleanInput('use-gh-comments') && ((_a = github.context.issue) === null || _a === void 0 ? void 0 : _a.number) > 0) {
-        ;
-        (() => __awaiter(this, void 0, void 0, function* () {
+    return __awaiter(this, void 0, void 0, function* () {
+        if (process.env.GITHUB_TOKEN && core.getBooleanInput('use-gh-comments') && ((_a = github.context.issue) === null || _a === void 0 ? void 0 : _a.number) > 0) {
             try {
                 yield deleteFailureCommentIfExists();
             }
             catch (e) {
                 core.debug(`Unable to delete a comment: ${e}`);
             }
-        }))();
-    }
+        }
+    });
 }
 exports.reportEnvironmentSuccess = reportEnvironmentSuccess;
 function deleteFailureCommentIfExists() {

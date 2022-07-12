@@ -30,38 +30,39 @@ async function findPRCommentId(): Promise<number | undefined> {
   return myComment?.id
 }
 
-export function reportEnvironmentFailure(verb: String, stdout: String): void {
+export async function reportEnvironmentFailure(verb: String, stdout: String): Promise<void> {
   const envStatus = stdout.match(/^Overall status: (.+)$/m)?.[1]
   const statusReason = stdout.match(/^Reason: (.+)$/m)?.[1]
 
   if (envStatus && statusReason) {
-    const messageVerb = verb[0].toUpperCase() + verb.substring(1)
-    const message = `${messageVerb} Velocity environment has ${envStatus.toLowerCase()} due to:\n`
+    // create -> Creating, update -> Updating
+    const messageVerb = `${verb[0].toUpperCase()}${verb.slice(1, -1)}ing`
+    const message = `${messageVerb} the Velocity environment has ${envStatus.toLowerCase()} due to:\n`
     core.error(`${message}\n${statusReason}`)
 
     // Post an appropriate comment if so desired
-    if (core.getBooleanInput('use-gh-comments') && github.context.issue?.number > 0) {
+    if (process.env.GITHUB_TOKEN && core.getBooleanInput('use-gh-comments') && github.context.issue?.number > 0) {
       const runHref = `${github.context.serverUrl}/${github.context.issue.owner}/${github.context.issue.repo}/actions/runs/${github.context.runId}`
-      ;(async () => {
-        try {
-          await postFailureComment(verb, `${message}\`${statusReason}\`\n[See related run](${runHref})`)
-        } catch (e) {
-          core.debug(`Unable to post a comment: ${e}`)
-        }
-      })()
+      try {
+        await postFailureComment(verb, `${message}\`${statusReason}\`\n[See related run](${runHref})`)
+      } catch (e) {
+        core.debug(`Unable to post a comment: ${e}`)
+      }
     }
+  } else {
+    core.info(
+      `Failed to extract the failure reason from the output (status: "${envStatus}", reason: "${statusReason}")`
+    )
   }
 }
 
-export function reportEnvironmentSuccess(): void {
-  if (core.getBooleanInput('use-gh-comments') && github.context.issue?.number > 0) {
-    ;(async () => {
-      try {
-        await deleteFailureCommentIfExists()
-      } catch (e) {
-        core.debug(`Unable to delete a comment: ${e}`)
-      }
-    })()
+export async function reportEnvironmentSuccess(): Promise<void> {
+  if (process.env.GITHUB_TOKEN && core.getBooleanInput('use-gh-comments') && github.context.issue?.number > 0) {
+    try {
+      await deleteFailureCommentIfExists()
+    } catch (e) {
+      core.debug(`Unable to delete a comment: ${e}`)
+    }
   }
 }
 

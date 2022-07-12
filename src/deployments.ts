@@ -38,6 +38,7 @@ export async function startDeployment(name: string): Promise<number> {
     repo,
     ref,
     environment: name,
+    description: 'Velocity environment deployment',
     required_contexts: [],
     transient_environment: true,
     auto_merge: false
@@ -54,6 +55,7 @@ export async function startDeployment(name: string): Promise<number> {
     repo,
     deployment_id: deploymentId,
     state: 'in_progress',
+    description: 'The Velocity environment deployment is in progress...',
     environment_url: environmentUrl(name)
   })
 
@@ -68,6 +70,9 @@ export async function updateDeployment(deploymentId: number, envName: string, su
     deployment_id: deploymentId,
     environment_url: environmentUrl(envName),
     state: success ? 'success' : 'failure',
+    description: success
+      ? 'The Velocity environment is active.'
+      : "The Velocity environment deployment has failed. See more details in the deployment's output.",
     log_url: `${process.env.GITHUB_SERVER_URL}/${owner}/${repo}/actions/runs/${process.env.GITHUB_RUN_ID}`
   })
 }
