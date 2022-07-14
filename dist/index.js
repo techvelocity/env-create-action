@@ -428,7 +428,7 @@ function run() {
                 throw new Error('Missing environment name');
             }
             let deploymentId;
-            if (core.getBooleanInput('use-gh-deployments')) {
+            if (process.env.GITHUB_TOKEN && core.getBooleanInput('use-gh-deployments')) {
                 deploymentId = yield (0, deployments_1.startDeployment)(envName);
             }
             const cliVersion = yield (0, download_1.resolveVersion)(core.getInput('version'));
@@ -625,11 +625,11 @@ function createOrUpdate(token, params) {
             core.startGroup('Complete output');
             core.info(splitOutput.toString());
             core.endGroup();
-            (0, error_reporting_1.reportEnvironmentFailure)(verb, filteredStdout);
+            yield (0, error_reporting_1.reportEnvironmentFailure)(verb, filteredStdout);
             throw new Error(`failed to ${verb} (args=${args}): ${filteredStdout}`);
         }
         else {
-            (0, error_reporting_1.reportEnvironmentSuccess)();
+            yield (0, error_reporting_1.reportEnvironmentSuccess)();
         }
         core.info(`${verb} output:\n${filteredStdout}`);
         return true;

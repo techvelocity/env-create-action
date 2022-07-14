@@ -149,11 +149,11 @@ export async function createOrUpdate(token: string, params: CreateOrUpdateParams
     core.info(splitOutput.toString())
     core.endGroup()
 
-    reportEnvironmentFailure(verb, filteredStdout)
+    await reportEnvironmentFailure(verb, filteredStdout)
 
     throw new Error(`failed to ${verb} (args=${args}): ${filteredStdout}`)
   } else {
-    reportEnvironmentSuccess()
+    await reportEnvironmentSuccess()
   }
 
   core.info(`${verb} output:\n${filteredStdout}`)
