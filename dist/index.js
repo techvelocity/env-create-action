@@ -75,6 +75,7 @@ function startDeployment(name) {
             repo,
             ref,
             environment: name,
+            description: 'Velocity environment deployment',
             required_contexts: [],
             transient_environment: true,
             auto_merge: false
@@ -88,6 +89,7 @@ function startDeployment(name) {
             repo,
             deployment_id: deploymentId,
             state: 'in_progress',
+            description: 'The Velocity environment deployment is in progress...',
             environment_url: environmentUrl(name)
         });
         return deploymentId;
@@ -103,6 +105,9 @@ function updateDeployment(deploymentId, envName, success) {
             deployment_id: deploymentId,
             environment_url: environmentUrl(envName),
             state: success ? 'success' : 'failure',
+            description: success
+                ? 'The Velocity environment is active.'
+                : "The Velocity environment deployment has failed. See more details in the deployment's output.",
             log_url: `${process.env.GITHUB_SERVER_URL}/${owner}/${repo}/actions/runs/${process.env.GITHUB_RUN_ID}`
         });
     });
@@ -216,6 +221,153 @@ exports.download = download;
 
 /***/ }),
 
+/***/ 8266:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || function (mod) {
+    if (mod && mod.__esModule) return mod;
+    var result = {};
+    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    __setModuleDefault(result, mod);
+    return result;
+};
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.postFailureComment = exports.deleteFailureCommentIfExists = exports.reportEnvironmentSuccess = exports.reportEnvironmentFailure = void 0;
+const core = __importStar(__nccwpck_require__(2186));
+const github = __importStar(__nccwpck_require__(5438));
+const action_1 = __nccwpck_require__(1231);
+const MESSAGE_PREFIX = '<!-- velocity -->';
+function findPRCommentId() {
+    return __awaiter(this, void 0, void 0, function* () {
+        const octokit = new action_1.Octokit();
+        const comments = (yield octokit.rest.issues.listComments({
+            owner: github.context.issue.owner,
+            repo: github.context.issue.repo,
+            issue_number: github.context.issue.number
+        })).data;
+        const myComment = comments
+            .filter(comment => {
+            var _a, _b, _c;
+            return ((_a = comment.user) === null || _a === void 0 ? void 0 : _a.login) === 'github-actions[bot]' &&
+                ((_b = comment.user) === null || _b === void 0 ? void 0 : _b.type) === 'Bot' &&
+                ((_c = comment.body) === null || _c === void 0 ? void 0 : _c.startsWith(MESSAGE_PREFIX));
+        })
+            .at(0);
+        if (core.isDebug()) {
+            core.debug(`Found previous comment: ${myComment ? JSON.stringify(myComment) : '[none]'}`);
+        }
+        return myComment === null || myComment === void 0 ? void 0 : myComment.id;
+    });
+}
+function reportEnvironmentFailure(verb, stdout) {
+    var _a, _b, _c;
+    return __awaiter(this, void 0, void 0, function* () {
+        const envStatus = (_a = stdout.match(/^Overall status: (.+)$/m)) === null || _a === void 0 ? void 0 : _a[1];
+        const statusReason = (_b = stdout.match(/^Reason: (.+)$/m)) === null || _b === void 0 ? void 0 : _b[1];
+        if (envStatus && statusReason) {
+            // create -> Creating, update -> Updating
+            const messageVerb = `${verb[0].toUpperCase()}${verb.slice(1, -1)}ing`;
+            const message = `${messageVerb} the Velocity environment has ${envStatus.toLowerCase()} due to:\n`;
+            core.error(`${message}\n${statusReason}`);
+            // Post an appropriate comment if so desired
+            if (process.env.GITHUB_TOKEN && core.getBooleanInput('use-gh-comments') && ((_c = github.context.issue) === null || _c === void 0 ? void 0 : _c.number) > 0) {
+                const runHref = `${github.context.serverUrl}/${github.context.issue.owner}/${github.context.issue.repo}/actions/runs/${github.context.runId}`;
+                try {
+                    yield postFailureComment(verb, `${message}\`${statusReason}\`\n[See related run](${runHref})`);
+                }
+                catch (e) {
+                    core.debug(`Unable to post a comment: ${e}`);
+                }
+            }
+        }
+        else {
+            core.info(`Failed to extract the failure reason from the output (status: "${envStatus}", reason: "${statusReason}")`);
+        }
+    });
+}
+exports.reportEnvironmentFailure = reportEnvironmentFailure;
+function reportEnvironmentSuccess() {
+    var _a;
+    return __awaiter(this, void 0, void 0, function* () {
+        if (process.env.GITHUB_TOKEN && core.getBooleanInput('use-gh-comments') && ((_a = github.context.issue) === null || _a === void 0 ? void 0 : _a.number) > 0) {
+            try {
+                yield deleteFailureCommentIfExists();
+            }
+            catch (e) {
+                core.debug(`Unable to delete a comment: ${e}`);
+            }
+        }
+    });
+}
+exports.reportEnvironmentSuccess = reportEnvironmentSuccess;
+function deleteFailureCommentIfExists() {
+    return __awaiter(this, void 0, void 0, function* () {
+        const commentId = yield findPRCommentId();
+        if (commentId) {
+            const octokit = new action_1.Octokit();
+            octokit.issues.deleteComment({
+                owner: github.context.issue.owner,
+                repo: github.context.issue.repo,
+                comment_id: commentId
+            });
+        }
+    });
+}
+exports.deleteFailureCommentIfExists = deleteFailureCommentIfExists;
+function postFailureComment(verb, message) {
+    return __awaiter(this, void 0, void 0, function* () {
+        const octokit = new action_1.Octokit();
+        const commentId = yield findPRCommentId();
+        if (commentId) {
+            octokit.issues.updateComment({
+                owner: github.context.issue.owner,
+                repo: github.context.issue.repo,
+                comment_id: commentId,
+                body: `${MESSAGE_PREFIX}${message}`
+            });
+        }
+        else {
+            octokit.issues.createComment({
+                owner: github.context.issue.owner,
+                repo: github.context.issue.repo,
+                issue_number: github.context.issue.number,
+                body: `${MESSAGE_PREFIX}${message}`
+            });
+        }
+    });
+}
+exports.postFailureComment = postFailureComment;
+
+
+/***/ }),
+
 /***/ 3109:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
@@ -276,7 +428,7 @@ function run() {
                 throw new Error('Missing environment name');
             }
             let deploymentId;
-            if (core.getBooleanInput('use-gh-deployments')) {
+            if (process.env.GITHUB_TOKEN && core.getBooleanInput('use-gh-deployments')) {
                 deploymentId = yield (0, deployments_1.startDeployment)(envName);
             }
             const cliVersion = yield (0, download_1.resolveVersion)(core.getInput('version'));
@@ -362,8 +514,10 @@ const core = __importStar(__nccwpck_require__(2186));
 const fs = __importStar(__nccwpck_require__(7147));
 const tmp = __importStar(__nccwpck_require__(8517));
 const exec_1 = __nccwpck_require__(1514);
+const error_reporting_1 = __nccwpck_require__(8266);
 const yaml_1 = __importDefault(__nccwpck_require__(4083));
 const semver_1 = __importDefault(__nccwpck_require__(1383));
+// The scroll character
 const RMCUP_CHAR = '[?1049l';
 const CREATOR_FLAG_MIN_VERSION = '0.4.0';
 function execVeloctl(token, args) {
@@ -468,7 +622,14 @@ function createOrUpdate(token, params) {
         const splitOutput = output.stdout.split(RMCUP_CHAR);
         const filteredStdout = splitOutput[splitOutput.length - 1];
         if (output.exitCode !== 0) {
-            throw new Error(`failed to ${verb} (exitCode=${output.exitCode}, args=${args}): ${splitOutput}`);
+            core.startGroup('Complete output');
+            core.info(splitOutput.toString());
+            core.endGroup();
+            yield (0, error_reporting_1.reportEnvironmentFailure)(verb, filteredStdout);
+            throw new Error(`failed to ${verb} (args=${args}): ${filteredStdout}`);
+        }
+        else {
+            yield (0, error_reporting_1.reportEnvironmentSuccess)();
         }
         core.info(`${verb} output:\n${filteredStdout}`);
         return true;

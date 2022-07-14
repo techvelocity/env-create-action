@@ -22,7 +22,7 @@ async function run(): Promise<void> {
     }
 
     let deploymentId
-    if (core.getBooleanInput('use-gh-deployments')) {
+    if (process.env.GITHUB_TOKEN && core.getBooleanInput('use-gh-deployments')) {
       deploymentId = await startDeployment(envName)
     }
 

@@ -4,8 +4,7 @@ import {Octokit} from '@octokit/action'
 const [owner, repo] = (process.env.GITHUB_REPOSITORY ?? '?/?').split('/')
 
 function environmentUrl(envName: string): string {
-  const {VELOCITY_DOMAIN: velocityDomain, VELOCITY_SERVICE: velocityService} =
-    process.env
+  const {VELOCITY_DOMAIN: velocityDomain, VELOCITY_SERVICE: velocityService} = process.env
 
   let url = ''
   if (velocityDomain && velocityService) {
@@ -39,6 +38,7 @@ export async function startDeployment(name: string): Promise<number> {
     repo,
     ref,
     environment: name,
+    description: 'Velocity environment deployment',
     required_contexts: [],
     transient_environment: true,
     auto_merge: false
@@ -55,17 +55,14 @@ export async function startDeployment(name: string): Promise<number> {
     repo,
     deployment_id: deploymentId,
     state: 'in_progress',
+    description: 'The Velocity environment deployment is in progress...',
     environment_url: environmentUrl(name)
   })
 
   return deploymentId
 }
 
-export async function updateDeployment(
-  deploymentId: number,
-  envName: string,
-  success: boolean
-): Promise<void> {
+export async function updateDeployment(deploymentId: number, envName: string, success: boolean): Promise<void> {
   const octokit = new Octokit()
   await octokit.repos.createDeploymentStatus({
     owner,
@@ -73,6 +70,9 @@ export async function updateDeployment(
     deployment_id: deploymentId,
     environment_url: environmentUrl(envName),
     state: success ? 'success' : 'failure',
+    description: success
+      ? 'The Velocity environment is active.'
+      : "The Velocity environment deployment has failed. See more details in the deployment's output.",
     log_url: `${process.env.GITHUB_SERVER_URL}/${owner}/${repo}/actions/runs/${process.env.GITHUB_RUN_ID}`
   })
 }

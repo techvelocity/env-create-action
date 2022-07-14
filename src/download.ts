@@ -39,9 +39,7 @@ function getUrl(version: string): string {
   return `https://releases.velocity.tech/veloctl/v${version}/veloctl_${version}_${platform}_${arch}.tar.gz`
 }
 
-export async function resolveVersion(
-  requestedVersion?: string
-): Promise<string> {
+export async function resolveVersion(requestedVersion?: string): Promise<string> {
   let version = requestedVersion
   if (!version || !semver.valid(version)) {
     version = await latest()
