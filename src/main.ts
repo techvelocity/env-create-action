@@ -1,8 +1,7 @@
 import * as core from '@actions/core'
 import * as github from '@actions/github'
-import {download, resolveVersion} from './download'
+import {createOrUpdate, download} from '@techvelocity/veloctl'
 import {startDeployment, updateDeployment} from './deployments'
-import {createOrUpdate} from './veloctl'
 
 async function run(): Promise<void> {
   try {
@@ -26,8 +25,7 @@ async function run(): Promise<void> {
       deploymentId = await startDeployment(envName)
     }
 
-    const cliVersion = await resolveVersion(core.getInput('version'))
-    const veloctl = await download(cliVersion)
+    const {path: veloctl, version: cliVersion} = await download(core.getInput('version'))
     core.debug(`veloctl available at: ${veloctl}`)
 
     let creator = undefined
