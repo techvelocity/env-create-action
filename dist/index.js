@@ -531,7 +531,7 @@ function envExists(token, envName) {
     return __awaiter(this, void 0, void 0, function* () {
         try {
             const output = yield execVeloctl(token, ['env', 'status', envName]);
-            return output.exitCode === 0 || !output.stdout.includes('was not found');
+            return output.exitCode === 0 || !output.stdout.includes('not found');
         }
         catch (e) {
             return false;
