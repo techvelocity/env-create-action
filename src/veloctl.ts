@@ -24,7 +24,7 @@ async function execVeloctl(token: string, args: string[]): Promise<ExecOutput> {
 export async function envExists(token: string, envName: string): Promise<boolean> {
   try {
     const output = await execVeloctl(token, ['env', 'status', envName])
-    return output.exitCode === 0 || !output.stdout.includes('was not found')
+    return output.exitCode === 0 || !output.stdout.includes('not found')
   } catch (e) {
     return false
   }
