@@ -31,12 +31,12 @@
     "@actions/tool-cache": "^2.0.1",
     "@octokit/action": "^5.0.2",
     "node-fetch": "^2.6.6",
-    "semver": "^7.3.7"
+    "semver": "^7.5.1"
   },
   "devDependencies": {
     "@types/node": "^18.16.3",
     "@types/node-fetch": "^2.6.2",
-    "@types/semver": "^7.3.12",
+    "@types/semver": "^7.5.0",
     "@typescript-eslint/parser": "^5.59.1",
     "@vercel/ncc": "^0.36.0",
     "eslint": "^8.39.0",
