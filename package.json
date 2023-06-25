@@ -31,7 +31,7 @@
     "@actions/tool-cache": "^2.0.1",
     "@octokit/action": "^5.0.2",
     "node-fetch": "^2.6.6",
-    "semver": "^7.3.7"
+    "semver": "^7.5.2"
   },
   "devDependencies": {
     "@types/node": "^18.16.3",
