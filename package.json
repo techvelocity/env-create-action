@@ -29,7 +29,7 @@
     "@actions/exec": "^1.1.1",
     "@actions/github": "^5.1.1",
     "@actions/tool-cache": "^2.0.1",
-    "@octokit/action": "^5.0.2",
+    "@octokit/action": "^6.0.6",
     "node-fetch": "^2.6.6",
     "semver": "^7.3.7"
   },
